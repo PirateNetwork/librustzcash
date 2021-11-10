@@ -1,7 +1,7 @@
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use std::io::{self, Read, Write};
 
-const MAX_SIZE: usize = 0x02000000;
+const MAX_SIZE: usize = 0x02100000;
 
 pub(crate) struct CompactSize;
 

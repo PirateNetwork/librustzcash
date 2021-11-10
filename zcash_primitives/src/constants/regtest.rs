@@ -37,10 +37,10 @@ pub const HRP_SAPLING_PAYMENT_ADDRESS: &str = "zregtestsapling";
 /// Same as the testnet prefix.
 ///
 /// [`TransparentAddress::PublicKey`]: crate::legacy::TransparentAddress::PublicKey
-pub const B58_PUBKEY_ADDRESS_PREFIX: [u8; 2] = [0x1d, 0x25];
+pub const B58_PUBKEY_ADDRESS_PREFIX: [u8; 1] = [0x25];
 
 /// The prefix for a Base58Check-encoded regtest [`TransparentAddress::Script`].
 /// Same as the testnet prefix.
 ///
 /// [`TransparentAddress::Script`]: crate::legacy::TransparentAddress::Script
-pub const B58_SCRIPT_ADDRESS_PREFIX: [u8; 2] = [0x1c, 0xba];
+pub const B58_SCRIPT_ADDRESS_PREFIX: [u8; 1] = [0xba];
