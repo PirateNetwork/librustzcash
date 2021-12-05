@@ -442,8 +442,8 @@ impl TryFrom<u32> for BranchId {
     fn try_from(value: u32) -> Result<Self, Self::Error> {
         match value {
             0 => Ok(BranchId::Sprout),
-            0x6f76_727a => Ok(BranchId::Overwinter),
-            0x7361_707a => Ok(BranchId::Sapling),
+            0x5ba8_1b19 => Ok(BranchId::Overwinter),
+            0x76b8_09bb => Ok(BranchId::Sapling),
             0x2bb4_0e60 => Ok(BranchId::Blossom),
             0xf5b9_230b => Ok(BranchId::Heartwood),
             0xe9ff_75a6 => Ok(BranchId::Canopy),
@@ -458,8 +458,8 @@ impl From<BranchId> for u32 {
     fn from(consensus_branch_id: BranchId) -> u32 {
         match consensus_branch_id {
             BranchId::Sprout => 0,
-            BranchId::Overwinter => 0x6f76_727a,
-            BranchId::Sapling => 0x7361_707a,
+            BranchId::Overwinter => 0x5ba8_1b19,
+            BranchId::Sapling => 0x76b8_09bb,
             BranchId::Blossom => 0x2bb4_0e60,
             BranchId::Heartwood => 0xf5b9_230b,
             BranchId::Canopy => 0xe9ff_75a6,
