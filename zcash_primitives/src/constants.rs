@@ -6,6 +6,7 @@ use jubjub::SubgroupPoint;
 use lazy_static::lazy_static;
 
 pub mod mainnet;
+pub mod piratenet;
 pub mod regtest;
 pub mod testnet;
 
