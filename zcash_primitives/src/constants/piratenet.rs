@@ -33,10 +33,10 @@ pub const HRP_SAPLING_PAYMENT_ADDRESS: &str = "zs";
 ///
 /// [`TransparentAddress::PublicKey`]: crate::legacy::TransparentAddress::PublicKey
 // Need to fix before this is useable, pirate is [0x3c]
-pub const B58_PUBKEY_ADDRESS_PREFIX: [u8; 2] = [0x3c, 0x00];
+pub const B58_PUBKEY_ADDRESS_PREFIX: [u8; 1] = [0x3c];
 
 /// The prefix for a Base58Check-encoded mainnet [`TransparentAddress::Script`].
 ///
 /// [`TransparentAddress::Script`]: crate::legacy::TransparentAddress::Script
 // Need to fix before this is useable, Pirate is [0x55]
-pub const B58_SCRIPT_ADDRESS_PREFIX: [u8; 2] = [0x55, 0x00];
+pub const B58_SCRIPT_ADDRESS_PREFIX: [u8; 1] = [0x55];
