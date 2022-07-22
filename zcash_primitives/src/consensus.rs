@@ -186,13 +186,14 @@ pub trait Parameters: Clone {
     /// applies.
     ///
     /// [`TransparentAddress::PublicKey`]: zcash_primitives::legacy::TransparentAddress::PublicKey
-    fn b58_pubkey_address_prefix(&self) -> [u8; 2];
+    fn b58_pubkey_address_prefix(&self) -> &[u8];
 
     /// Returns the human-readable prefix for Base58Check-encoded transparent pay-to-script-hash
     /// payment addresses for the network to which this Parameters value applies.
     ///
     /// [`TransparentAddress::Script`]: zcash_primitives::legacy::TransparentAddress::Script
-    fn b58_script_address_prefix(&self) -> [u8; 2];
+    fn b58_script_address_prefix(&self) -> &[u8];
+
 }
 
 /// Marker struct for the production network.
@@ -237,12 +238,12 @@ impl Parameters for MainNetwork {
         constants::mainnet::HRP_SAPLING_PAYMENT_ADDRESS
     }
 
-    fn b58_pubkey_address_prefix(&self) -> [u8; 2] {
-        constants::mainnet::B58_PUBKEY_ADDRESS_PREFIX
+    fn b58_pubkey_address_prefix(&self) -> &[u8] {
+        &constants::mainnet::B58_PUBKEY_ADDRESS_PREFIX[..]
     }
 
-    fn b58_script_address_prefix(&self) -> [u8; 2] {
-        constants::mainnet::B58_SCRIPT_ADDRESS_PREFIX
+    fn b58_script_address_prefix(&self) -> &[u8] {
+        &constants::mainnet::B58_SCRIPT_ADDRESS_PREFIX[..]
     }
 }
 
@@ -282,12 +283,12 @@ impl Parameters for PirateNetwork {
         constants::piratenet::HRP_SAPLING_PAYMENT_ADDRESS
     }
 
-    fn b58_pubkey_address_prefix(&self) -> [u8; 2] {
-        constants::piratenet::B58_PUBKEY_ADDRESS_PREFIX
+    fn b58_pubkey_address_prefix(&self) -> &[u8] {
+        &constants::piratenet::B58_PUBKEY_ADDRESS_PREFIX[..]
     }
 
-    fn b58_script_address_prefix(&self) -> [u8; 2] {
-        constants::piratenet::B58_SCRIPT_ADDRESS_PREFIX
+    fn b58_script_address_prefix(&self) -> &[u8] {
+        &constants::piratenet::B58_SCRIPT_ADDRESS_PREFIX[..]
     }
 }
 
@@ -333,12 +334,12 @@ impl Parameters for TestNetwork {
         constants::testnet::HRP_SAPLING_PAYMENT_ADDRESS
     }
 
-    fn b58_pubkey_address_prefix(&self) -> [u8; 2] {
-        constants::testnet::B58_PUBKEY_ADDRESS_PREFIX
+    fn b58_pubkey_address_prefix(&self) -> &[u8] {
+        &constants::testnet::B58_PUBKEY_ADDRESS_PREFIX[..]
     }
 
-    fn b58_script_address_prefix(&self) -> [u8; 2] {
-        constants::testnet::B58_SCRIPT_ADDRESS_PREFIX
+    fn b58_script_address_prefix(&self) -> &[u8] {
+        &constants::testnet::B58_SCRIPT_ADDRESS_PREFIX[..]
     }
 }
 
@@ -399,20 +400,22 @@ impl Parameters for Network {
         }
     }
 
-    fn b58_pubkey_address_prefix(&self) -> [u8; 2] {
-        match self {
+    fn b58_pubkey_address_prefix(&self) -> &[u8] {
+        let prefix = match self {
             Network::MainNetwork => MAIN_NETWORK.b58_pubkey_address_prefix(),
             Network::TestNetwork => TEST_NETWORK.b58_pubkey_address_prefix(),
-            Network::PirateNetwork => PIRATE_NETWORK.b58_pubkey_address_prefix(),
-        }
+            Network::PirateNetwork => PIRATE_NETWORK.b58_pubkey_address_prefix()
+        };
+        &prefix[..]
     }
 
-    fn b58_script_address_prefix(&self) -> [u8; 2] {
-        match self {
+    fn b58_script_address_prefix(&self) -> &[u8] {
+        let prefix = match self {
             Network::MainNetwork => MAIN_NETWORK.b58_script_address_prefix(),
             Network::TestNetwork => TEST_NETWORK.b58_script_address_prefix(),
-            Network::PirateNetwork => PIRATE_NETWORK.b58_script_address_prefix(),
-        }
+            Network::PirateNetwork => PIRATE_NETWORK.b58_script_address_prefix()
+        };
+        &prefix[..]
     }
 }
 
