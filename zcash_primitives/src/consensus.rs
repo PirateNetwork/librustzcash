@@ -191,12 +191,12 @@ pub const MAIN_NETWORK: MainNetwork = MainNetwork;
 impl Parameters for MainNetwork {
     fn activation_height(&self, nu: NetworkUpgrade) -> Option<BlockHeight> {
         match nu {
-            NetworkUpgrade::Overwinter => Some(BlockHeight(347_500)),
-            NetworkUpgrade::Sapling => Some(BlockHeight(419_200)),
-            NetworkUpgrade::Blossom => Some(BlockHeight(653_600)),
-            NetworkUpgrade::Heartwood => Some(BlockHeight(903_000)),
-            NetworkUpgrade::Canopy => Some(BlockHeight(1_046_400)),
-            NetworkUpgrade::Nu5 => Some(BlockHeight(1_687_104)),
+            NetworkUpgrade::Overwinter => Some(BlockHeight(0)),
+            NetworkUpgrade::Sapling => Some(BlockHeight(152_855)),
+            NetworkUpgrade::Blossom => Some(BlockHeight(4_000_000_000)),
+            NetworkUpgrade::Heartwood => Some(BlockHeight(4_000_000_000)),
+            NetworkUpgrade::Canopy => Some(BlockHeight(4_000_000_000)),
+            NetworkUpgrade::Nu5 => Some(BlockHeight(4_000_000_000)),
             #[cfg(feature = "zfuture")]
             NetworkUpgrade::ZFuture => None,
         }
@@ -227,50 +227,6 @@ impl Parameters for MainNetwork {
     }
 }
 
-/// Marker struct for the Pirate production network.
-#[derive(PartialEq, Copy, Clone, Debug)]
-pub struct PirateNetwork;
-
-pub const PIRATE_NETWORK: PirateNetwork = PirateNetwork;
-
-impl Parameters for PirateNetwork {
-    fn activation_height(&self, nu: NetworkUpgrade) -> Option<BlockHeight> {
-        match nu {
-            NetworkUpgrade::Overwinter => Some(BlockHeight(0)),
-            NetworkUpgrade::Sapling => Some(BlockHeight(152_855)),
-            NetworkUpgrade::Blossom => Some(BlockHeight(4_000_000_000)),
-            NetworkUpgrade::Heartwood => Some(BlockHeight(4_000_000_000)),
-            NetworkUpgrade::Canopy => Some(BlockHeight(4_000_000_000)),
-            NetworkUpgrade::Nu5 => Some(BlockHeight(4_000_000_000)),
-            #[cfg(feature = "zfuture")]
-            NetworkUpgrade::ZFuture => None,
-        }
-    }
-
-    fn coin_type(&self) -> u32 {
-        constants::piratenet::COIN_TYPE
-    }
-
-    fn hrp_sapling_extended_spending_key(&self) -> &str {
-        constants::piratenet::HRP_SAPLING_EXTENDED_SPENDING_KEY
-    }
-
-    fn hrp_sapling_extended_full_viewing_key(&self) -> &str {
-        constants::piratenet::HRP_SAPLING_EXTENDED_FULL_VIEWING_KEY
-    }
-
-    fn hrp_sapling_payment_address(&self) -> &str {
-        constants::piratenet::HRP_SAPLING_PAYMENT_ADDRESS
-    }
-
-    fn b58_pubkey_address_prefix(&self) -> &[u8] {
-        &constants::piratenet::B58_PUBKEY_ADDRESS_PREFIX[..]
-    }
-
-    fn b58_script_address_prefix(&self) -> &[u8] {
-        &constants::piratenet::B58_SCRIPT_ADDRESS_PREFIX[..]
-    }
-}
 
 /// Marker struct for the test network.
 #[derive(PartialEq, Copy, Clone, Debug)]
@@ -321,7 +277,6 @@ impl Parameters for TestNetwork {
 pub enum Network {
     MainNetwork,
     TestNetwork,
-    PirateNetwork,
 }
 
 impl Parameters for Network {
@@ -329,7 +284,6 @@ impl Parameters for Network {
         match self {
             Network::MainNetwork => MAIN_NETWORK.activation_height(nu),
             Network::TestNetwork => TEST_NETWORK.activation_height(nu),
-            Network::PirateNetwork => PIRATE_NETWORK.activation_height(nu),
         }
     }
 
@@ -337,7 +291,6 @@ impl Parameters for Network {
         match self {
             Network::MainNetwork => MAIN_NETWORK.coin_type(),
             Network::TestNetwork => TEST_NETWORK.coin_type(),
-            Network::PirateNetwork => PIRATE_NETWORK.coin_type(),
         }
     }
 
@@ -345,7 +298,6 @@ impl Parameters for Network {
         match self {
             Network::MainNetwork => MAIN_NETWORK.hrp_sapling_extended_spending_key(),
             Network::TestNetwork => TEST_NETWORK.hrp_sapling_extended_spending_key(),
-            Network::PirateNetwork => PIRATE_NETWORK.hrp_sapling_extended_spending_key(),
         }
     }
 
@@ -353,7 +305,6 @@ impl Parameters for Network {
         match self {
             Network::MainNetwork => MAIN_NETWORK.hrp_sapling_extended_full_viewing_key(),
             Network::TestNetwork => TEST_NETWORK.hrp_sapling_extended_full_viewing_key(),
-            Network::PirateNetwork => PIRATE_NETWORK.hrp_sapling_extended_full_viewing_key(),
         }
     }
 
@@ -361,7 +312,6 @@ impl Parameters for Network {
         match self {
             Network::MainNetwork => MAIN_NETWORK.hrp_sapling_payment_address(),
             Network::TestNetwork => TEST_NETWORK.hrp_sapling_payment_address(),
-            Network::PirateNetwork => PIRATE_NETWORK.hrp_sapling_payment_address(),
         }
     }
 
@@ -369,7 +319,6 @@ impl Parameters for Network {
         let prefix = match self {
             Network::MainNetwork => MAIN_NETWORK.b58_pubkey_address_prefix(),
             Network::TestNetwork => TEST_NETWORK.b58_pubkey_address_prefix(),
-            Network::PirateNetwork => PIRATE_NETWORK.b58_pubkey_address_prefix()
         };
         &prefix[..]
     }
@@ -378,7 +327,6 @@ impl Parameters for Network {
         let prefix = match self {
             Network::MainNetwork => MAIN_NETWORK.b58_script_address_prefix(),
             Network::TestNetwork => TEST_NETWORK.b58_script_address_prefix(),
-            Network::PirateNetwork => PIRATE_NETWORK.b58_script_address_prefix()
         };
         &prefix[..]
     }
