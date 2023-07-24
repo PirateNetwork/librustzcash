@@ -84,21 +84,47 @@ impl FromStr for ZcashAddress {
                 .map(|kind| ZcashAddress { net, kind });
         }
 
-        // The rest use Base58Check.
+        // Base58 check for p2sh and p2pkh.
+        if let Ok(decoded) = bs58::decode(s).with_check(None).into_vec() {
+
+            let found_encoding = match decoded[..1].try_into().unwrap() {
+                p2pkh::MAINNET | p2sh::MAINNET => true,
+                p2pkh::TESTNET | p2sh::TESTNET => true,
+                _ => false
+            };
+
+            if found_encoding {
+                let net = match decoded[..1].try_into().unwrap() {
+                    p2pkh::MAINNET | p2sh::MAINNET => Network::Main,
+                    p2pkh::TESTNET | p2sh::TESTNET => Network::Test,
+                    // We will not define new Base58Check address encodings.
+                    _ => return Err(ParseError::NotZcash),
+                };
+
+                return match decoded[..1].try_into().unwrap() {
+                    p2pkh::MAINNET | p2pkh::TESTNET => decoded[1..].try_into().map(AddressKind::P2pkh),
+                    p2sh::MAINNET | p2sh::TESTNET => decoded[1..].try_into().map(AddressKind::P2sh),
+                    _ => unreachable!(),
+                }
+                .map_err(|_| ParseError::InvalidEncoding)
+                .map(|kind| ZcashAddress { kind, net });
+            }
+        };
+
+
+        // Base58 check for sprout
         if let Ok(decoded) = bs58::decode(s).with_check(None).into_vec() {
             let net = match decoded[..2].try_into().unwrap() {
-                sprout::MAINNET | p2pkh::MAINNET | p2sh::MAINNET => Network::Main,
-                sprout::TESTNET | p2pkh::TESTNET | p2sh::TESTNET => Network::Test,
+                sprout::MAINNET => Network::Main,
+                sprout::TESTNET => Network::Test,
                 // We will not define new Base58Check address encodings.
-                _ => return Err(ParseError::NotZcash),
+                _ => (return Err(ParseError::NotZcash)),
             };
 
             return match decoded[..2].try_into().unwrap() {
                 sprout::MAINNET | sprout::TESTNET => {
                     decoded[2..].try_into().map(AddressKind::Sprout)
                 }
-                p2pkh::MAINNET | p2pkh::TESTNET => decoded[2..].try_into().map(AddressKind::P2pkh),
-                p2sh::MAINNET | p2sh::TESTNET => decoded[2..].try_into().map(AddressKind::P2sh),
                 _ => unreachable!(),
             }
             .map_err(|_| ParseError::InvalidEncoding)
@@ -114,7 +140,7 @@ fn encode_bech32(hrp: &str, data: &[u8]) -> String {
     bech32::encode(hrp, data.to_base32(), Variant::Bech32).expect("hrp is invalid")
 }
 
-fn encode_b58(prefix: [u8; 2], data: &[u8]) -> String {
+fn encode_b58(prefix: &[u8], data: &[u8]) -> String {
     let mut bytes = Vec::with_capacity(2 + data.len());
     bytes.extend_from_slice(&prefix);
     bytes.extend_from_slice(data);
@@ -126,8 +152,8 @@ impl fmt::Display for ZcashAddress {
         let encoded = match &self.kind {
             AddressKind::Sprout(data) => encode_b58(
                 match self.net {
-                    Network::Main => sprout::MAINNET,
-                    Network::Test | Network::Regtest => sprout::TESTNET,
+                    Network::Main => &sprout::MAINNET,
+                    Network::Test | Network::Regtest => &sprout::TESTNET,
                 },
                 data,
             ),
@@ -142,15 +168,15 @@ impl fmt::Display for ZcashAddress {
             AddressKind::Unified(addr) => addr.encode(&self.net),
             AddressKind::P2pkh(data) => encode_b58(
                 match self.net {
-                    Network::Main => p2pkh::MAINNET,
-                    Network::Test | Network::Regtest => p2pkh::TESTNET,
+                    Network::Main => &p2pkh::MAINNET,
+                    Network::Test | Network::Regtest => &p2pkh::TESTNET,
                 },
                 data,
             ),
             AddressKind::P2sh(data) => encode_b58(
                 match self.net {
-                    Network::Main => p2sh::MAINNET,
-                    Network::Test | Network::Regtest => p2sh::TESTNET,
+                    Network::Main => &p2sh::MAINNET,
+                    Network::Test | Network::Regtest => &p2sh::TESTNET,
                 },
                 data,
             ),
