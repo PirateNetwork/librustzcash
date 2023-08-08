@@ -118,7 +118,7 @@ impl FromStr for ZcashAddress {
                 sprout::MAINNET => Network::Main,
                 sprout::TESTNET => Network::Test,
                 // We will not define new Base58Check address encodings.
-                _ => (return Err(ParseError::NotZcash)),
+                _ => return Err(ParseError::NotZcash),
             };
 
             return match decoded[..2].try_into().unwrap() {

@@ -3,7 +3,6 @@ use std::iter::Sum;
 use std::ops::{Add, AddAssign, Mul, Neg, Sub, SubAssign};
 
 use memuse::DynamicUsage;
-use orchard::value as orchard;
 
 pub const COIN: i64 = 1_0000_0000;
 pub const MAX_MONEY: i64 = 21_000_000 * COIN;
@@ -213,14 +212,6 @@ impl Mul<usize> for Amount {
         self.0
             .checked_mul(rhs)
             .and_then(|i| Amount::try_from(i).ok())
-    }
-}
-
-impl TryFrom<orchard::ValueSum> for Amount {
-    type Error = ();
-
-    fn try_from(v: orchard::ValueSum) -> Result<Amount, Self::Error> {
-        i64::try_from(v).map_err(|_| ()).and_then(Amount::try_from)
     }
 }
 

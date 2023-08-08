@@ -7,33 +7,13 @@ use incrementalmerkletree::{
     bridgetree::{AuthFragment, Frontier, Leaf, MerkleBridge, NonEmptyFrontier},
     Hashable, Position,
 };
-use orchard::tree::MerkleHashOrchard;
+
 use zcash_encoding::{Optional, Vector};
 
 use super::{CommitmentTree, HashSer};
 
 pub const SER_V1: u8 = 1;
 pub const SER_V2: u8 = 2;
-
-impl HashSer for MerkleHashOrchard {
-    fn read<R: Read>(mut reader: R) -> io::Result<Self>
-    where
-        Self: Sized,
-    {
-        let mut repr = [0u8; 32];
-        reader.read_exact(&mut repr)?;
-        <Option<_>>::from(Self::from_bytes(&repr)).ok_or_else(|| {
-            io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "Non-canonical encoding of Pallas base field value.",
-            )
-        })
-    }
-
-    fn write<W: Write>(&self, mut writer: W) -> io::Result<()> {
-        writer.write_all(&self.to_bytes())
-    }
-}
 
 /// Writes a usize value encoded as a u64 in little-endian order. Since usize
 /// is platform-dependent, we consistently represent it as u64 in serialized

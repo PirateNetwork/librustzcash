@@ -6,7 +6,6 @@ use std::convert::{TryFrom, TryInto};
 /// The set of known Receivers for Unified Addresses.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Receiver {
-    Orchard([u8; 43]),
     Sapling(kind::sapling::Data),
     P2pkh(kind::p2pkh::Data),
     P2sh(kind::p2sh::Data),
@@ -21,7 +20,6 @@ impl TryFrom<(u32, &[u8])> for Receiver {
             Typecode::P2pkh => addr.try_into().map(Receiver::P2pkh),
             Typecode::P2sh => addr.try_into().map(Receiver::P2sh),
             Typecode::Sapling => addr.try_into().map(Receiver::Sapling),
-            Typecode::Orchard => addr.try_into().map(Receiver::Orchard),
             Typecode::Unknown(_) => Ok(Receiver::Unknown {
                 typecode,
                 data: addr.to_vec(),
@@ -39,7 +37,6 @@ impl SealedItem for Receiver {
             Receiver::P2pkh(_) => Typecode::P2pkh,
             Receiver::P2sh(_) => Typecode::P2sh,
             Receiver::Sapling(_) => Typecode::Sapling,
-            Receiver::Orchard(_) => Typecode::Orchard,
             Receiver::Unknown { typecode, .. } => Typecode::Unknown(*typecode),
         }
     }
@@ -49,7 +46,6 @@ impl SealedItem for Receiver {
             Receiver::P2pkh(data) => data,
             Receiver::P2sh(data) => data,
             Receiver::Sapling(data) => data,
-            Receiver::Orchard(data) => data,
             Receiver::Unknown { data, .. } => data,
         }
     }
@@ -129,8 +125,7 @@ mod tests {
     fn arb_shielded_typecode() -> impl Strategy<Value = Typecode> {
         prop_oneof![
             Just(Typecode::Sapling),
-            Just(Typecode::Orchard),
-            ((<u32>::from(Typecode::Orchard) + 1)..MAX_COMPACT_SIZE).prop_map(Typecode::Unknown)
+            ((<u32>::from(Typecode::Sapling) + 1)..MAX_COMPACT_SIZE).prop_map(Typecode::Unknown)
         ]
     }
 
@@ -156,7 +151,6 @@ mod tests {
                 Typecode::P2pkh => uniform20(0u8..).prop_map(Receiver::P2pkh).boxed(),
                 Typecode::P2sh => uniform20(0u8..).prop_map(Receiver::P2sh).boxed(),
                 Typecode::Sapling => uniform43().prop_map(Receiver::Sapling).boxed(),
-                Typecode::Orchard => uniform43().prop_map(Receiver::Orchard).boxed(),
                 Typecode::Unknown(typecode) => vec(any::<u8>(), 32..256)
                     .prop_map(move |data| Receiver::Unknown { typecode, data })
                     .boxed(),
@@ -317,7 +311,6 @@ mod tests {
         // Construct a UA with receivers in an unsorted order.
         let ua = Address(vec![
             Receiver::P2pkh([0; 20]),
-            Receiver::Orchard([0; 43]),
             Receiver::Unknown {
                 typecode: 0xff,
                 data: vec![],
@@ -329,7 +322,6 @@ mod tests {
         assert_eq!(
             ua.items(),
             vec![
-                Receiver::Orchard([0; 43]),
                 Receiver::Sapling([0; 43]),
                 Receiver::P2pkh([0; 20]),
                 Receiver::Unknown {

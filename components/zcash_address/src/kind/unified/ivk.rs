@@ -8,11 +8,6 @@ use super::{
 /// The set of known IVKs for Unified IVKs.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Ivk {
-    /// The raw encoding of an Orchard Incoming Viewing Key.
-    ///
-    /// `(dk, ivk)` each 32 bytes.
-    Orchard([u8; 64]),
-
     /// Data contained within the Sapling component of a Unified Incoming Viewing Key.
     ///
     /// In order to ensure that Unified Addresses can always be derived from UIVKs, we
@@ -53,7 +48,6 @@ impl TryFrom<(u32, &[u8])> for Ivk {
             Typecode::P2pkh => data.try_into().map(Ivk::P2pkh),
             Typecode::P2sh => Err(data),
             Typecode::Sapling => data.try_into().map(Ivk::Sapling),
-            Typecode::Orchard => data.try_into().map(Ivk::Orchard),
             Typecode::Unknown(_) => Ok(Ivk::Unknown { typecode, data }),
         }
         .map_err(|e| {
@@ -67,7 +61,6 @@ impl SealedItem for Ivk {
         match self {
             Ivk::P2pkh(_) => Typecode::P2pkh,
             Ivk::Sapling(_) => Typecode::Sapling,
-            Ivk::Orchard(_) => Typecode::Orchard,
             Ivk::Unknown { typecode, .. } => Typecode::Unknown(*typecode),
         }
     }
@@ -76,7 +69,6 @@ impl SealedItem for Ivk {
         match self {
             Ivk::P2pkh(data) => data,
             Ivk::Sapling(data) => data,
-            Ivk::Orchard(data) => data,
             Ivk::Unknown { data, .. } => data,
         }
     }
@@ -163,10 +155,8 @@ mod tests {
     fn arb_shielded_ivk() -> impl Strategy<Value = Vec<Ivk>> {
         prop_oneof![
             vec![uniform64().prop_map(Ivk::Sapling)],
-            vec![uniform64().prop_map(Ivk::Orchard)],
             vec![
-                uniform64().prop_map(Ivk::Sapling as fn([u8; 64]) -> Ivk),
-                uniform64().prop_map(Ivk::Orchard)
+                uniform64().prop_map(Ivk::Sapling as fn([u8; 64]) -> Ivk)
             ],
         ]
     }
@@ -308,7 +298,6 @@ mod tests {
         // Construct a UIVK with ivks in an unsorted order.
         let uivk = Uivk(vec![
             Ivk::P2pkh([0; 65]),
-            Ivk::Orchard([0; 64]),
             Ivk::Unknown {
                 typecode: 0xff,
                 data: vec![],
@@ -320,7 +309,6 @@ mod tests {
         assert_eq!(
             uivk.items(),
             vec![
-                Ivk::Orchard([0; 64]),
                 Ivk::Sapling([0; 64]),
                 Ivk::P2pkh([0; 65]),
                 Ivk::Unknown {

@@ -81,7 +81,6 @@ impl<'a> demo::Context for Context<'a> {
         self.tx.transparent_bundle().is_none()
             && self.tx.sapling_bundle().is_none()
             && self.tx.sprout_bundle().is_none()
-            && self.tx.orchard_bundle().is_none()
     }
 
     fn tx_tze_outputs(&self) -> &[TzeOut] {

@@ -38,7 +38,6 @@ impl AddressMetadata {
 /// A Unified Address.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct UnifiedAddress {
-    orchard: Option<orchard::Address>,
     sapling: Option<PaymentAddress>,
     transparent: Option<TransparentAddress>,
     unknown: Vec<(u32, Vec<u8>)>,
@@ -48,7 +47,6 @@ impl TryFrom<unified::Address> for UnifiedAddress {
     type Error = &'static str;
 
     fn try_from(ua: unified::Address) -> Result<Self, Self::Error> {
-        let mut orchard = None;
         let mut sapling = None;
         let mut transparent = None;
 
@@ -58,15 +56,6 @@ impl TryFrom<unified::Address> for UnifiedAddress {
             .items_as_parsed()
             .iter()
             .filter_map(|receiver| match receiver {
-                unified::Receiver::Orchard(data) => {
-                    Option::from(orchard::Address::from_raw_address_bytes(data))
-                        .ok_or("Invalid Orchard receiver in Unified Address")
-                        .map(|addr| {
-                            orchard = Some(addr);
-                            None
-                        })
-                        .transpose()
-                }
                 unified::Receiver::Sapling(data) => PaymentAddress::from_bytes(data)
                     .ok_or("Invalid Sapling receiver in Unified Address")
                     .map(|pa| {
@@ -89,7 +78,6 @@ impl TryFrom<unified::Address> for UnifiedAddress {
             .collect::<Result<_, _>>()?;
 
         Ok(Self {
-            orchard,
             sapling,
             transparent,
             unknown,
@@ -103,13 +91,11 @@ impl UnifiedAddress {
     /// Returns `None` if the receivers would produce an invalid Unified Address (namely,
     /// if no shielded receiver is provided).
     pub fn from_receivers(
-        orchard: Option<orchard::Address>,
         sapling: Option<PaymentAddress>,
         transparent: Option<TransparentAddress>,
     ) -> Option<Self> {
-        if orchard.is_some() || sapling.is_some() {
+        if sapling.is_some() {
             Some(Self {
-                orchard,
                 sapling,
                 transparent,
                 unknown: vec![],
@@ -118,11 +104,6 @@ impl UnifiedAddress {
             // UAs require at least one shielded receiver.
             None
         }
-    }
-
-    /// Returns the Orchard receiver within this Unified Address, if any.
-    pub fn orchard(&self) -> Option<&orchard::Address> {
-        self.orchard.as_ref()
     }
 
     /// Returns the Sapling receiver within this Unified Address, if any.
@@ -152,12 +133,6 @@ impl UnifiedAddress {
                         .as_ref()
                         .map(|pa| pa.to_bytes())
                         .map(unified::Receiver::Sapling),
-                )
-                .chain(
-                    self.orchard
-                        .as_ref()
-                        .map(|addr| addr.to_raw_address_bytes())
-                        .map(unified::Receiver::Orchard),
                 )
                 .collect(),
         )
@@ -260,12 +235,6 @@ mod tests {
 
     #[test]
     fn ua_round_trip() {
-        let orchard = {
-            let sk = orchard::keys::SpendingKey::from_zip32_seed(&[0; 32], 0, 0).unwrap();
-            let fvk = orchard::keys::FullViewingKey::from(&sk);
-            Some(fvk.address_at(0u32, orchard::keys::Scope::External))
-        };
-
         let sapling = {
             let extsk = sapling::spending_key(&[0; 32], 0, 0.into());
             let dfvk = extsk.to_diversifiable_full_viewing_key();
@@ -274,7 +243,7 @@ mod tests {
 
         let transparent = { None };
 
-        let ua = UnifiedAddress::from_receivers(orchard, sapling, transparent).unwrap();
+        let ua = UnifiedAddress::from_receivers(sapling, transparent).unwrap();
 
         let addr = RecipientAddress::Unified(ua);
         let addr_str = addr.encode(&MAIN_NETWORK);
@@ -294,7 +263,6 @@ mod tests {
                         tv.p2pkh_bytes.is_some() || tv.p2sh_bytes.is_some()
                     );
                     assert_eq!(ua.sapling().is_some(), tv.sapling_raw_addr.is_some());
-                    assert_eq!(ua.orchard().is_some(), tv.orchard_raw_addr.is_some());
                 }
                 Some(_) => {
                     panic!(

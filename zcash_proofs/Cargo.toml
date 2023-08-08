@@ -51,7 +51,7 @@ default = ["local-prover", "multicore"]
 bundled-prover = ["wagyu-zcash-parameters"]
 download-params = ["minreq", "directories"]
 local-prover = ["directories"]
-multicore = ["bellman/multicore", "zcash_primitives/multicore"]
+multicore = ["bellman/multicore"]
 
 [lib]
 bench = false

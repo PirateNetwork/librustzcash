@@ -1,5 +1,4 @@
 //! Helper functions for managing light client key material.
-use orchard;
 use zcash_address::unified::{self, Container, Encoding};
 use zcash_primitives::{
     consensus,
@@ -81,7 +80,6 @@ fn to_transparent_child_index(j: DiversifierIndex) -> Option<u32> {
 #[derive(Debug)]
 #[doc(hidden)]
 pub enum DerivationError {
-    Orchard(orchard::zip32::Error),
     #[cfg(feature = "transparent-inputs")]
     Transparent(hdwallet::error::Error),
 }
@@ -141,7 +139,6 @@ pub struct UnifiedSpendingKey {
     #[cfg(feature = "transparent-inputs")]
     transparent: legacy::AccountPrivKey,
     sapling: sapling::ExtendedSpendingKey,
-    orchard: orchard::keys::SpendingKey,
 }
 
 #[doc(hidden)]
@@ -155,10 +152,6 @@ impl UnifiedSpendingKey {
             panic!("ZIP 32 seeds MUST be at least 32 bytes");
         }
 
-        let orchard =
-            orchard::keys::SpendingKey::from_zip32_seed(seed, params.coin_type(), account.into())
-                .map_err(DerivationError::Orchard)?;
-
         #[cfg(feature = "transparent-inputs")]
         let transparent = legacy::AccountPrivKey::from_seed(params, seed, account)
             .map_err(DerivationError::Transparent)?;
@@ -167,7 +160,6 @@ impl UnifiedSpendingKey {
             #[cfg(feature = "transparent-inputs")]
             transparent,
             sapling: sapling::spending_key(seed, params.coin_type(), account),
-            orchard,
         })
     }
 
@@ -176,7 +168,6 @@ impl UnifiedSpendingKey {
             #[cfg(feature = "transparent-inputs")]
             transparent: Some(self.transparent.to_account_pubkey()),
             sapling: Some(self.sapling.to_diversifiable_full_viewing_key()),
-            orchard: Some((&self.orchard).into()),
             unknown: vec![],
         }
     }
@@ -193,11 +184,6 @@ impl UnifiedSpendingKey {
         &self.sapling
     }
 
-    /// Returns the Orchard spending key component of this unified spending key.
-    pub fn orchard(&self) -> &orchard::keys::SpendingKey {
-        &self.orchard
-    }
-
     /// Returns a binary encoding of this key suitable for decoding with [`decode`].
     ///
     /// The encoded form of a unified spending key is only intended for use
@@ -211,14 +197,6 @@ impl UnifiedSpendingKey {
     pub fn to_bytes(&self, era: Era) -> Vec<u8> {
         let mut result = vec![];
         result.write_u32::<LittleEndian>(era.id()).unwrap();
-
-        // orchard
-        let orchard_key = self.orchard();
-        CompactSize::write(&mut result, usize::try_from(Typecode::Orchard).unwrap()).unwrap();
-
-        let orchard_key_bytes = orchard_key.to_bytes();
-        CompactSize::write(&mut result, orchard_key_bytes.len()).unwrap();
-        result.write_all(orchard_key_bytes).unwrap();
 
         // sapling
         let sapling_key = self.sapling();
@@ -258,7 +236,6 @@ impl UnifiedSpendingKey {
             return Err(DecodingError::EraMismatch(decoded_era));
         }
 
-        let mut orchard = None;
         let mut sapling = None;
         #[cfg(feature = "transparent-inputs")]
         let mut transparent = None;
@@ -271,22 +248,6 @@ impl UnifiedSpendingKey {
                 .map_err(|_| DecodingError::ReadError("key length"))?;
 
             match tc {
-                Typecode::Orchard => {
-                    if len != 32 {
-                        return Err(DecodingError::LengthMismatch(Typecode::Orchard, len));
-                    }
-
-                    let mut key = [0u8; 32];
-                    source
-                        .read_exact(&mut key)
-                        .map_err(|_| DecodingError::InsufficientData(Typecode::Orchard))?;
-                    orchard = Some(
-                        Option::<orchard::keys::SpendingKey>::from(
-                            orchard::keys::SpendingKey::from_bytes(key),
-                        )
-                        .ok_or(DecodingError::KeyDataInvalid(Typecode::Orchard))?,
-                    );
-                }
                 Typecode::Sapling => {
                     if len != 169 {
                         return Err(DecodingError::LengthMismatch(Typecode::Sapling, len));
@@ -326,9 +287,8 @@ impl UnifiedSpendingKey {
             #[cfg(not(feature = "transparent-inputs"))]
             let has_transparent = true;
 
-            if orchard.is_some() && sapling.is_some() && has_transparent {
+            if sapling.is_some() && has_transparent {
                 return Ok(UnifiedSpendingKey {
-                    orchard: orchard.unwrap(),
                     sapling: sapling.unwrap(),
                     #[cfg(feature = "transparent-inputs")]
                     transparent: transparent.unwrap(),
@@ -345,7 +305,6 @@ pub struct UnifiedFullViewingKey {
     #[cfg(feature = "transparent-inputs")]
     transparent: Option<legacy::AccountPubKey>,
     sapling: Option<sapling::DiversifiableFullViewingKey>,
-    orchard: Option<orchard::keys::FullViewingKey>,
     unknown: Vec<(u32, Vec<u8>)>,
 }
 
@@ -355,7 +314,6 @@ impl UnifiedFullViewingKey {
     pub fn new(
         #[cfg(feature = "transparent-inputs")] transparent: Option<legacy::AccountPubKey>,
         sapling: Option<sapling::DiversifiableFullViewingKey>,
-        orchard: Option<orchard::keys::FullViewingKey>,
     ) -> Option<UnifiedFullViewingKey> {
         if sapling.is_none() {
             None
@@ -364,7 +322,6 @@ impl UnifiedFullViewingKey {
                 #[cfg(feature = "transparent-inputs")]
                 transparent,
                 sapling,
-                orchard,
                 // We don't allow constructing new UFVKs with unknown items, but we store
                 // this to allow parsing such UFVKs.
                 unknown: vec![],
@@ -385,7 +342,6 @@ impl UnifiedFullViewingKey {
             ));
         }
 
-        let mut orchard = None;
         let mut sapling = None;
         #[cfg(feature = "transparent-inputs")]
         let mut transparent = None;
@@ -396,13 +352,6 @@ impl UnifiedFullViewingKey {
             .items_as_parsed()
             .iter()
             .filter_map(|receiver| match receiver {
-                unified::Fvk::Orchard(data) => orchard::keys::FullViewingKey::from_bytes(data)
-                    .ok_or("Invalid Orchard FVK in Unified FVK")
-                    .map(|addr| {
-                        orchard = Some(addr);
-                        None
-                    })
-                    .transpose(),
                 unified::Fvk::Sapling(data) => {
                     sapling::DiversifiableFullViewingKey::from_bytes(data)
                         .ok_or("Invalid Sapling FVK in Unified FVK")
@@ -432,7 +381,6 @@ impl UnifiedFullViewingKey {
             #[cfg(feature = "transparent-inputs")]
             transparent,
             sapling,
-            orchard,
             unknown,
         })
     }
@@ -440,12 +388,6 @@ impl UnifiedFullViewingKey {
     /// Returns the string encoding of this `UnifiedFullViewingKey` for the given network.
     pub fn encode<P: consensus::Parameters>(&self, params: &P) -> String {
         let items = std::iter::empty()
-            .chain(
-                self.orchard
-                    .as_ref()
-                    .map(|fvk| fvk.to_bytes())
-                    .map(unified::Fvk::Orchard),
-            )
             .chain(
                 self.sapling
                     .as_ref()
@@ -485,11 +427,6 @@ impl UnifiedFullViewingKey {
         self.sapling.as_ref()
     }
 
-    /// Returns the Orchard full viewing key component of this unified key.
-    pub fn orchard(&self) -> Option<&orchard::keys::FullViewingKey> {
-        self.orchard.as_ref()
-    }
-
     /// Attempts to derive the Unified Address for the given diversifier index.
     ///
     /// Returns `None` if the specified index does not produce a valid diversifier.
@@ -520,7 +457,7 @@ impl UnifiedFullViewingKey {
         #[cfg(not(feature = "transparent-inputs"))]
         let transparent = None;
 
-        UnifiedAddress::from_receivers(None, sapling, transparent)
+        UnifiedAddress::from_receivers(sapling, transparent)
     }
 
     /// Searches the diversifier space starting at diversifier index `j` for one which will
@@ -637,11 +574,6 @@ mod tests {
     fn ufvk_round_trip() {
         let account = 0.into();
 
-        let orchard = {
-            let sk = orchard::keys::SpendingKey::from_zip32_seed(&[0; 32], 0, 0).unwrap();
-            Some(orchard::keys::FullViewingKey::from(&sk))
-        };
-
         let sapling = {
             let extsk = sapling::spending_key(&[0; 32], 0, account);
             Some(extsk.to_diversifiable_full_viewing_key())
@@ -658,7 +590,6 @@ mod tests {
             #[cfg(feature = "transparent-inputs")]
             transparent,
             sapling,
-            orchard,
         )
         .unwrap();
 
@@ -684,10 +615,6 @@ mod tests {
         assert_eq!(
             decoded.sapling.map(|s| s.to_bytes()),
             ufvk.sapling.map(|s| s.to_bytes()),
-        );
-        assert_eq!(
-            decoded.orchard.map(|o| o.to_bytes()),
-            ufvk.orchard.map(|o| o.to_bytes()),
         );
 
         let decoded_with_t = UnifiedFullViewingKey::decode(&MAIN_NETWORK, encoded_with_t).unwrap();
@@ -755,7 +682,6 @@ mod tests {
             assert_eq!(encoded.len(), 4 + 2 + 32 + 2 + 169 + 2 + 64);
             let decoded = UnifiedSpendingKey::from_bytes(Era::Orchard, &encoded);
             let decoded = decoded.unwrap_or_else(|e| panic!("Error decoding USK: {:?}", e));
-            assert!(bool::from(decoded.orchard().ct_eq(usk.orchard())));
             assert_eq!(decoded.sapling(), usk.sapling());
             #[cfg(feature = "transparent-inputs")]
             assert_eq!(decoded.transparent().to_bytes(), usk.transparent().to_bytes());

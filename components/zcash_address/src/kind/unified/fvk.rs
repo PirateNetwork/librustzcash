@@ -8,11 +8,6 @@ use super::{
 /// The set of known FVKs for Unified FVKs.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Fvk {
-    /// The raw encoding of an Orchard Full Viewing Key.
-    ///
-    /// `(ak, nk, rivk)` each 32 bytes.
-    Orchard([u8; 96]),
-
     /// Data contained within the Sapling component of a Unified Full Viewing Key
     ///
     /// `(ak, nk, ovk, dk)` each 32 bytes.
@@ -48,7 +43,6 @@ impl TryFrom<(u32, &[u8])> for Fvk {
             Typecode::P2pkh => data.try_into().map(Fvk::P2pkh),
             Typecode::P2sh => Err(data),
             Typecode::Sapling => data.try_into().map(Fvk::Sapling),
-            Typecode::Orchard => data.try_into().map(Fvk::Orchard),
             Typecode::Unknown(_) => Ok(Fvk::Unknown { typecode, data }),
         }
         .map_err(|e| {
@@ -62,7 +56,6 @@ impl SealedItem for Fvk {
         match self {
             Fvk::P2pkh(_) => Typecode::P2pkh,
             Fvk::Sapling(_) => Typecode::Sapling,
-            Fvk::Orchard(_) => Typecode::Orchard,
             Fvk::Unknown { typecode, .. } => Typecode::Unknown(*typecode),
         }
     }
@@ -71,7 +64,6 @@ impl SealedItem for Fvk {
         match self {
             Fvk::P2pkh(data) => data,
             Fvk::Sapling(data) => data,
-            Fvk::Orchard(data) => data,
             Fvk::Unknown { data, .. } => data,
         }
     }
@@ -162,10 +154,6 @@ mod tests {
         }
     }
 
-    pub fn arb_orchard_fvk() -> impl Strategy<Value = Fvk> {
-        uniform96().prop_map(Fvk::Orchard)
-    }
-
     pub fn arb_sapling_fvk() -> impl Strategy<Value = Fvk> {
         uniform128().prop_map(Fvk::Sapling)
     }
@@ -173,8 +161,6 @@ mod tests {
     fn arb_shielded_fvk() -> impl Strategy<Value = Vec<Fvk>> {
         prop_oneof![
             vec![arb_sapling_fvk().boxed()],
-            vec![arb_orchard_fvk().boxed()],
-            vec![arb_sapling_fvk().boxed(), arb_orchard_fvk().boxed()],
         ]
     }
 
@@ -326,7 +312,6 @@ mod tests {
         // Construct a UFVK with fvks in an unsorted order.
         let ufvk = Ufvk(vec![
             Fvk::P2pkh([0; 65]),
-            Fvk::Orchard([0; 96]),
             Fvk::Unknown {
                 typecode: 0xff,
                 data: vec![],
@@ -338,7 +323,6 @@ mod tests {
         assert_eq!(
             ufvk.items(),
             vec![
-                Fvk::Orchard([0; 96]),
                 Fvk::Sapling([0; 128]),
                 Fvk::P2pkh([0; 65]),
                 Fvk::Unknown {

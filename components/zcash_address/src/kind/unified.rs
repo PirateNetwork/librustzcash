@@ -22,7 +22,6 @@ pub enum Typecode {
     P2pkh,
     P2sh,
     Sapling,
-    Orchard,
     Unknown(u32),
 }
 
@@ -30,8 +29,7 @@ impl Typecode {
     pub fn preference_order(a: &Self, b: &Self) -> cmp::Ordering {
         match (a, b) {
             // Trivial equality checks.
-            (Self::Orchard, Self::Orchard)
-            | (Self::Sapling, Self::Sapling)
+            (Self::Sapling, Self::Sapling)
             | (Self::P2sh, Self::P2sh)
             | (Self::P2pkh, Self::P2pkh) => cmp::Ordering::Equal,
 
@@ -43,9 +41,6 @@ impl Typecode {
 
             // For the remaining cases, we rely on `match` always choosing the first arm
             // with a matching pattern. Patterns below are listed in priority order:
-            (Self::Orchard, _) => cmp::Ordering::Less,
-            (_, Self::Orchard) => cmp::Ordering::Greater,
-
             (Self::Sapling, _) => cmp::Ordering::Less,
             (_, Self::Sapling) => cmp::Ordering::Greater,
 
@@ -70,8 +65,7 @@ impl TryFrom<u32> for Typecode {
             0x00 => Ok(Typecode::P2pkh),
             0x01 => Ok(Typecode::P2sh),
             0x02 => Ok(Typecode::Sapling),
-            0x03 => Ok(Typecode::Orchard),
-            0x04..=0x02000000 => Ok(Typecode::Unknown(typecode)),
+            0x03..=0x02000000 => Ok(Typecode::Unknown(typecode)),
             0x02000001..=u32::MAX => Err(ParseError::InvalidTypecodeValue(typecode as u64)),
         }
     }
@@ -83,7 +77,6 @@ impl From<Typecode> for u32 {
             Typecode::P2pkh => 0x00,
             Typecode::P2sh => 0x01,
             Typecode::Sapling => 0x02,
-            Typecode::Orchard => 0x03,
             Typecode::Unknown(typecode) => typecode,
         }
     }

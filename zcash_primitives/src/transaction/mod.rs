@@ -30,7 +30,6 @@ use crate::{
 use self::{
     components::{
         amount::{Amount, BalanceError},
-        orchard as orchard_serialization,
         sapling::{
             self, OutputDescription, OutputDescriptionV5, SpendDescription, SpendDescriptionV5,
         },
@@ -215,15 +214,6 @@ impl TxVersion {
         }
     }
 
-    pub fn has_orchard(&self) -> bool {
-        match self {
-            TxVersion::Sprout(_) | TxVersion::Overwinter | TxVersion::Sapling => false,
-            TxVersion::Zip225 => true,
-            #[cfg(feature = "zfuture")]
-            TxVersion::ZFuture => true,
-        }
-    }
-
     #[cfg(feature = "zfuture")]
     pub fn has_tze(&self) -> bool {
         matches!(self, TxVersion::ZFuture)
@@ -247,7 +237,6 @@ impl TxVersion {
 pub trait Authorization {
     type TransparentAuth: transparent::Authorization;
     type SaplingAuth: sapling::Authorization;
-    type OrchardAuth: orchard::bundle::Authorization;
 
     #[cfg(feature = "zfuture")]
     type TzeAuth: tze::Authorization;
@@ -259,7 +248,6 @@ pub struct Authorized;
 impl Authorization for Authorized {
     type TransparentAuth = transparent::Authorized;
     type SaplingAuth = sapling::Authorized;
-    type OrchardAuth = orchard::bundle::Authorized;
 
     #[cfg(feature = "zfuture")]
     type TzeAuth = tze::Authorized;
@@ -270,7 +258,6 @@ pub struct Unauthorized;
 impl Authorization for Unauthorized {
     type TransparentAuth = transparent::builder::Unauthorized;
     type SaplingAuth = sapling::builder::Unauthorized;
-    type OrchardAuth = orchard_serialization::Unauthorized;
 
     #[cfg(feature = "zfuture")]
     type TzeAuth = tze::builder::Unauthorized;
@@ -306,7 +293,6 @@ pub struct TransactionData<A: Authorization> {
     transparent_bundle: Option<transparent::Bundle<A::TransparentAuth>>,
     sprout_bundle: Option<sprout::Bundle>,
     sapling_bundle: Option<sapling::Bundle<A::SaplingAuth>>,
-    orchard_bundle: Option<orchard::bundle::Bundle<A::OrchardAuth, Amount>>,
     #[cfg(feature = "zfuture")]
     tze_bundle: Option<tze::Bundle<A::TzeAuth>>,
 }
@@ -321,7 +307,6 @@ impl<A: Authorization> TransactionData<A> {
         transparent_bundle: Option<transparent::Bundle<A::TransparentAuth>>,
         sprout_bundle: Option<sprout::Bundle>,
         sapling_bundle: Option<sapling::Bundle<A::SaplingAuth>>,
-        orchard_bundle: Option<orchard::Bundle<A::OrchardAuth, Amount>>,
     ) -> Self {
         TransactionData {
             version,
@@ -331,7 +316,6 @@ impl<A: Authorization> TransactionData<A> {
             transparent_bundle,
             sprout_bundle,
             sapling_bundle,
-            orchard_bundle,
             #[cfg(feature = "zfuture")]
             tze_bundle: None,
         }
@@ -347,7 +331,6 @@ impl<A: Authorization> TransactionData<A> {
         transparent_bundle: Option<transparent::Bundle<A::TransparentAuth>>,
         sprout_bundle: Option<sprout::Bundle>,
         sapling_bundle: Option<sapling::Bundle<A::SaplingAuth>>,
-        orchard_bundle: Option<orchard::Bundle<A::OrchardAuth, Amount>>,
         tze_bundle: Option<tze::Bundle<A::TzeAuth>>,
     ) -> Self {
         TransactionData {
@@ -358,7 +341,6 @@ impl<A: Authorization> TransactionData<A> {
             transparent_bundle,
             sprout_bundle,
             sapling_bundle,
-            orchard_bundle,
             tze_bundle,
         }
     }
@@ -391,10 +373,6 @@ impl<A: Authorization> TransactionData<A> {
         self.sapling_bundle.as_ref()
     }
 
-    pub fn orchard_bundle(&self) -> Option<&orchard::Bundle<A::OrchardAuth, Amount>> {
-        self.orchard_bundle.as_ref()
-    }
-
     #[cfg(feature = "zfuture")]
     pub fn tze_bundle(&self) -> Option<&tze::Bundle<A::TzeAuth>> {
         self.tze_bundle.as_ref()
@@ -419,9 +397,6 @@ impl<A: Authorization> TransactionData<A> {
             self.sapling_bundle
                 .as_ref()
                 .map_or_else(Amount::zero, |b| *b.value_balance()),
-            self.orchard_bundle
-                .as_ref()
-                .map_or_else(Amount::zero, |b| *b.value_balance()),
         ];
 
         value_balances
@@ -440,7 +415,6 @@ impl<A: Authorization> TransactionData<A> {
             ),
             digester.digest_transparent(self.transparent_bundle.as_ref()),
             digester.digest_sapling(self.sapling_bundle.as_ref()),
-            digester.digest_orchard(self.orchard_bundle.as_ref()),
             #[cfg(feature = "zfuture")]
             digester.digest_tze(self.tze_bundle.as_ref()),
         )
@@ -458,9 +432,6 @@ impl<A: Authorization> TransactionData<A> {
         f_sapling: impl FnOnce(
             Option<sapling::Bundle<A::SaplingAuth>>,
         ) -> Option<sapling::Bundle<B::SaplingAuth>>,
-        f_orchard: impl FnOnce(
-            Option<orchard::bundle::Bundle<A::OrchardAuth, Amount>>,
-        ) -> Option<orchard::bundle::Bundle<B::OrchardAuth, Amount>>,
         #[cfg(feature = "zfuture")] f_tze: impl FnOnce(
             Option<tze::Bundle<A::TzeAuth>>,
         ) -> Option<tze::Bundle<B::TzeAuth>>,
@@ -473,7 +444,6 @@ impl<A: Authorization> TransactionData<A> {
             transparent_bundle: f_transparent(self.transparent_bundle),
             sprout_bundle: self.sprout_bundle,
             sapling_bundle: f_sapling(self.sapling_bundle),
-            orchard_bundle: f_orchard(self.orchard_bundle),
             #[cfg(feature = "zfuture")]
             tze_bundle: f_tze(self.tze_bundle),
         }
@@ -483,7 +453,6 @@ impl<A: Authorization> TransactionData<A> {
         self,
         f_transparent: impl transparent::MapAuth<A::TransparentAuth, B::TransparentAuth>,
         f_sapling: impl sapling::MapAuth<A::SaplingAuth, B::SaplingAuth>,
-        mut f_orchard: impl orchard_serialization::MapAuth<A::OrchardAuth, B::OrchardAuth>,
         #[cfg(feature = "zfuture")] f_tze: impl tze::MapAuth<A::TzeAuth, B::TzeAuth>,
     ) -> TransactionData<B> {
         TransactionData {
@@ -496,13 +465,6 @@ impl<A: Authorization> TransactionData<A> {
                 .map(|b| b.map_authorization(f_transparent)),
             sprout_bundle: self.sprout_bundle,
             sapling_bundle: self.sapling_bundle.map(|b| b.map_authorization(f_sapling)),
-            orchard_bundle: self.orchard_bundle.map(|b| {
-                b.map_authorization(
-                    &mut f_orchard,
-                    |f, _, s| f.map_spend_auth(s),
-                    |f, a| f.map_authorization(a),
-                )
-            }),
             #[cfg(feature = "zfuture")]
             tze_bundle: self.tze_bundle.map(|b| b.map_authorization(f_tze)),
         }
@@ -656,7 +618,6 @@ impl Transaction {
                         sapling::Authorized { binding_sig },
                     )
                 }),
-                orchard_bundle: None,
                 #[cfg(feature = "zfuture")]
                 tze_bundle: None,
             },
@@ -691,7 +652,6 @@ impl Transaction {
             Self::read_v5_header_fragment(&mut reader)?;
         let transparent_bundle = Self::read_transparent(&mut reader)?;
         let sapling_bundle = Self::read_v5_sapling(&mut reader)?;
-        let orchard_bundle = orchard_serialization::read_v5_bundle(&mut reader)?;
 
         #[cfg(feature = "zfuture")]
         let tze_bundle = if version.has_tze() {
@@ -708,7 +668,6 @@ impl Transaction {
             transparent_bundle,
             sprout_bundle: None,
             sapling_bundle,
-            orchard_bundle,
             #[cfg(feature = "zfuture")]
             tze_bundle,
         };
@@ -871,13 +830,6 @@ impl Transaction {
             }
         }
 
-        if self.orchard_bundle.is_some() {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "Orchard components cannot be present when serializing to the V4 transaction format."
-            ));
-        }
-
         Ok(())
     }
 
@@ -903,7 +855,6 @@ impl Transaction {
         self.write_v5_header(&mut writer)?;
         self.write_transparent(&mut writer)?;
         self.write_v5_sapling(&mut writer)?;
-        orchard_serialization::write_v5_bundle(self.orchard_bundle.as_ref(), &mut writer)?;
         #[cfg(feature = "zfuture")]
         self.write_tze(&mut writer)?;
         Ok(())
@@ -1000,7 +951,6 @@ pub struct TxDigests<A> {
     pub header_digest: A,
     pub transparent_digests: Option<TransparentDigests<A>>,
     pub sapling_digest: Option<A>,
-    pub orchard_digest: Option<A>,
     #[cfg(feature = "zfuture")]
     pub tze_digests: Option<TzeDigests<A>>,
 }
@@ -1034,11 +984,6 @@ pub trait TransactionDigest<A: Authorization> {
         sapling_bundle: Option<&sapling::Bundle<A::SaplingAuth>>,
     ) -> Self::SaplingDigest;
 
-    fn digest_orchard(
-        &self,
-        orchard_bundle: Option<&orchard::Bundle<A::OrchardAuth, Amount>>,
-    ) -> Self::OrchardDigest;
-
     #[cfg(feature = "zfuture")]
     fn digest_tze(&self, tze_bundle: Option<&tze::Bundle<A::TzeAuth>>) -> Self::TzeDigest;
 
@@ -1047,7 +992,6 @@ pub trait TransactionDigest<A: Authorization> {
         header_digest: Self::HeaderDigest,
         transparent_digest: Self::TransparentDigest,
         sapling_digest: Self::SaplingDigest,
-        orchard_digest: Self::OrchardDigest,
         #[cfg(feature = "zfuture")] tze_digest: Self::TzeDigest,
     ) -> Self::Digest;
 }
@@ -1064,7 +1008,6 @@ pub mod testing {
 
     use super::{
         components::{
-            orchard::testing::{self as orchard},
             sapling::testing::{self as sapling},
             transparent::testing::{self as transparent},
         },
@@ -1100,7 +1043,6 @@ pub mod testing {
             expiry_height in any::<u32>(),
             transparent_bundle in transparent::arb_bundle(),
             sapling_bundle in sapling::arb_bundle_for_version(version),
-            orchard_bundle in orchard::arb_bundle_for_version(version),
             version in Just(version)
         ) -> TransactionData<Authorized> {
             TransactionData {
@@ -1111,7 +1053,6 @@ pub mod testing {
                 transparent_bundle,
                 sprout_bundle: None,
                 sapling_bundle,
-                orchard_bundle
             }
         }
     }
@@ -1125,7 +1066,6 @@ pub mod testing {
             expiry_height in any::<u32>(),
             transparent_bundle in transparent::arb_bundle(),
             sapling_bundle in sapling::arb_bundle_for_version(version),
-            orchard_bundle in orchard::arb_bundle_for_version(version),
             tze_bundle in tze::arb_bundle(consensus_branch_id),
             version in Just(version)
         ) -> TransactionData<Authorized> {
@@ -1137,7 +1077,6 @@ pub mod testing {
                 transparent_bundle,
                 sprout_bundle: None,
                 sapling_bundle,
-                orchard_bundle,
                 tze_bundle
             }
         }
