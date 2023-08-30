@@ -25,6 +25,7 @@ use crate::{
         },
         value::ValueCommitment,
         Diversifier, Note, PaymentAddress, Rseed,
+        spec::ka_sapling_agree,
     },
     transaction::components::{
         amount::Amount,
@@ -38,6 +39,17 @@ pub use crate::sapling::keys::{PreparedEphemeralPublicKey, PreparedIncomingViewi
 
 pub const KDF_SAPLING_PERSONALIZATION: &[u8; 16] = b"Zcash_SaplingKDF";
 pub const PRF_OCK_PERSONALIZATION: &[u8; 16] = b"Zcash_Derive_ock";
+
+/// Sapling key agreement for note encryption.
+///
+/// Implements section 5.4.4.3 of the Zcash Protocol Specification.
+pub fn sapling_ka_agree(esk: &jubjub::Fr, pk_d: &jubjub::ExtendedPoint) -> jubjub::SubgroupPoint {
+    // [8 esk] pk_d
+    // <ExtendedPoint as CofactorGroup>::clear_cofactor is implemented using
+    // ExtendedPoint::mul_by_cofactor in the jubjub crate.
+
+    ka_sapling_agree(esk, pk_d)
+}
 
 /// Sapling PRF^ock.
 ///
