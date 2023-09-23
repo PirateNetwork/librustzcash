@@ -27,6 +27,22 @@ impl SaplingVerificationContext {
         }
     }
 
+    pub fn add_spend_to_context(
+        &mut self,
+        cv: &ValueCommitment
+    ) {
+        // Accumulate the value commitment in the context
+        self.inner.add_spend_to_context_inner(&cv);
+    }
+
+    pub fn add_output_to_context(
+        &mut self,
+        cv: &ValueCommitment
+    ) {
+        // Accumulate the value commitment in the context
+        self.inner.add_output_to_context_inner(&cv);
+    }
+
     /// Perform consensus checks on a Sapling SpendDescription, while
     /// accumulating its value commitment inside the context for later use.
     #[allow(clippy::too_many_arguments)]
