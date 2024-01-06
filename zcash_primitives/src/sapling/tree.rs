@@ -66,7 +66,7 @@ pub fn merkle_hash(depth: usize, lhs: &[u8; 32], rhs: &[u8; 32]) -> [u8; 32] {
 }
 
 /// A node within the Sapling commitment tree.
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Node {
     pub(super) repr: [u8; 32],
 }
@@ -83,6 +83,11 @@ impl Node {
     #[cfg(test)]
     pub(crate) fn new(repr: [u8; 32]) -> Self {
         Node { repr }
+    }
+
+    /// Creates a tree leaf from the given Sapling note commitment.
+    pub fn to_bytes(&self) -> [u8; 32] {
+            return self.repr
     }
 
     /// Creates a tree leaf from the given Sapling note commitment.

@@ -214,6 +214,41 @@ pub fn write_incremental_witness<Node: HashSer, W: Write, const DEPTH: u8>(
     })
 }
 
+pub fn compute_root_from_witness<H: Hashable>(value: H, position: Position, path: &[H]) -> H {
+    let mut cur = value;
+    let mut lvl = 0.into();
+    for (i, v) in path
+        .iter()
+        .enumerate()
+        .map(|(i, v)| (((<u64>::from(position) >> i) & 1) == 1, v))
+    {
+        if i {
+            cur = H::combine(lvl, v, &cur);
+        } else {
+            cur = H::combine(lvl, &cur, v);
+        }
+        lvl = lvl + 1;
+    }
+    cur
+}
+
+/// Write a Merkle path to its serialized form
+pub fn write_merkle_path<Node: HashSer, W: Write, const DEPTH: u8>(
+    mut writer: W,
+    merkle_path: MerklePath<Node, DEPTH>,
+) -> io::Result<()> {
+
+    writer.write_u8(DEPTH)?;
+    for element in merkle_path.path_elems().iter().rev() {
+        writer.write_u8(DEPTH)?;
+        Node::write(element, &mut writer)?;
+    }
+
+    write_position(&mut writer, merkle_path.position())?;
+
+    Ok(())
+}
+
 /// Reads a Merkle path from its serialized form.
 pub fn merkle_path_from_slice<Node: HashSer, const DEPTH: u8>(
     mut witness: &[u8],
