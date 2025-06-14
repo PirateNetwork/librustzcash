@@ -6,12 +6,12 @@ use memuse::DynamicUsage;
 use orchard::value as orchard;
 
 pub const COIN: i64 = 1_0000_0000;
-pub const MAX_MONEY: i64 = 21_000_000 * COIN;
+pub const MAX_MONEY: i64 = 200_000_000 * COIN;
 
-/// A type-safe representation of some quantity of Zcash.
+/// A type-safe representation of some quantity of Pirate.
 ///
 /// An Amount can only be constructed from an integer that is within the valid monetary
-/// range of `{-MAX_MONEY..MAX_MONEY}` (where `MAX_MONEY` = 21,000,000 × 10⁸ zatoshis).
+/// range of `{-MAX_MONEY..MAX_MONEY}` (where `MAX_MONEY` = 200,000,000 × 10⁸ zatoshis).
 /// However, this range is not preserved as an invariant internally; it is possible to
 /// add two valid Amounts together to obtain an invalid Amount. It is the user's
 /// responsibility to handle the result of serializing potentially-invalid Amounts. In
