@@ -390,27 +390,13 @@ pub fn sapling_note_encryption<R: RngCore, P: consensus::Parameters>(
 #[allow(clippy::if_same_then_else)]
 #[allow(clippy::needless_bool)]
 pub fn plaintext_version_is_valid<P: consensus::Parameters>(
-    params: &P,
-    height: BlockHeight,
+    _params: &P,
+    _height: BlockHeight,
     leadbyte: u8,
 ) -> bool {
-    if params.is_nu_active(Canopy, height) {
-        let grace_period_end_height =
-            params.activation_height(Canopy).unwrap() + ZIP212_GRACE_PERIOD;
-
-        if height < grace_period_end_height && leadbyte != 0x01 && leadbyte != 0x02 {
-            // non-{0x01,0x02} received after Canopy activation and before grace period has elapsed
-            false
-        } else if height >= grace_period_end_height && leadbyte != 0x02 {
-            // non-0x02 received past (Canopy activation height + grace period)
-            false
-        } else {
-            true
-        }
-    } else {
-        // return false if non-0x01 received when Canopy is not active
-        leadbyte == 0x01
-    }
+    // Accept both 0x01 (pre-ZIP212) and 0x02 (post-ZIP212) lead bytes at all heights
+    // This allows decryption of notes created both before and after Canopy activation
+    leadbyte == 0x01 || leadbyte == 0x02
 }
 
 pub fn try_sapling_note_decryption<
