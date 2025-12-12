@@ -62,7 +62,7 @@ impl FromStr for ZcashAddress {
             }
         }
 
-        // Try decoding as a Sapling address (Bech32)
+        // Try decoding as a Sapling or Orchard address (Bech32)
         if let Ok((hrp, data, Variant::Bech32)) = bech32::decode(s) {
             // If we reached this point, the encoding is supposed to be valid Bech32.
             let data = Vec::<u8>::from_base32(&data).map_err(|_| ParseError::InvalidEncoding)?;
@@ -71,17 +71,36 @@ impl FromStr for ZcashAddress {
                 sapling::MAINNET => Network::Main,
                 sapling::TESTNET => Network::Test,
                 sapling::REGTEST => Network::Regtest,
+                orchard::MAINNET => Network::Main,
+                orchard::TESTNET => Network::Test,
+                orchard::REGTEST => Network::Regtest,
                 // We will not define new Bech32 address encodings.
                 _ => {
                     return Err(ParseError::NotZcash);
                 }
             };
 
-            return data[..]
-                .try_into()
-                .map(AddressKind::Sapling)
-                .map_err(|_| ParseError::InvalidEncoding)
-                .map(|kind| ZcashAddress { net, kind });
+            // Try parsing as Sapling first
+            if let Ok(sapling_data) = data[..].try_into() {
+                if matches!(hrp.as_str(), sapling::MAINNET | sapling::TESTNET | sapling::REGTEST) {
+                    return Ok(ZcashAddress {
+                        net,
+                        kind: AddressKind::Sapling(sapling_data),
+                    });
+                }
+            }
+
+            // Try parsing as Orchard
+            if let Ok(orchard_data) = data[..].try_into() {
+                if matches!(hrp.as_str(), orchard::MAINNET | orchard::TESTNET | orchard::REGTEST) {
+                    return Ok(ZcashAddress {
+                        net,
+                        kind: AddressKind::Orchard(orchard_data),
+                    });
+                }
+            }
+
+            return Err(ParseError::InvalidEncoding);
         }
 
         // Base58 check for p2sh and p2pkh.
@@ -118,7 +137,7 @@ impl FromStr for ZcashAddress {
                 sprout::MAINNET => Network::Main,
                 sprout::TESTNET => Network::Test,
                 // We will not define new Base58Check address encodings.
-                _ => (return Err(ParseError::NotZcash)),
+                _ => return Err(ParseError::NotZcash),
             };
 
             return match decoded[..2].try_into().unwrap() {
@@ -162,6 +181,14 @@ impl fmt::Display for ZcashAddress {
                     Network::Main => sapling::MAINNET,
                     Network::Test => sapling::TESTNET,
                     Network::Regtest => sapling::REGTEST,
+                },
+                data,
+            ),
+            AddressKind::Orchard(data) => encode_bech32(
+                match self.net {
+                    Network::Main => orchard::MAINNET,
+                    Network::Test => orchard::TESTNET,
+                    Network::Regtest => orchard::REGTEST,
                 },
                 data,
             ),
@@ -228,6 +255,31 @@ mod tests {
             ZcashAddress {
                 net: Network::Regtest,
                 kind: AddressKind::Sapling([0; 43]),
+            },
+        );
+    }
+
+    #[test]
+    fn orchard() {
+        encoding(
+            "pirate1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqy37r6n",
+            ZcashAddress {
+                net: Network::Main,
+                kind: AddressKind::Orchard([0; 43]),
+            },
+        );
+        encoding(
+            "pirate-test1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq5fkxqw",
+            ZcashAddress {
+                net: Network::Test,
+                kind: AddressKind::Orchard([0; 43]),
+            },
+        );
+        encoding(
+            "pirate-regtest1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqjt88fz",
+            ZcashAddress {
+                net: Network::Regtest,
+                kind: AddressKind::Orchard([0; 43]),
             },
         );
     }

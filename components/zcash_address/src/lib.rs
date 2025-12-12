@@ -37,6 +37,7 @@ pub enum Network {
 enum AddressKind {
     Sprout(kind::sprout::Data),
     Sapling(kind::sapling::Data),
+    Orchard(kind::orchard::Data),
     Unified(unified::Address),
     P2pkh(kind::p2pkh::Data),
     P2sh(kind::p2sh::Data),
@@ -101,6 +102,7 @@ impl ZcashAddress {
         match self.kind {
             AddressKind::Sprout(data) => T::try_from_sprout(self.net, data),
             AddressKind::Sapling(data) => T::try_from_sapling(self.net, data),
+            AddressKind::Orchard(data) => T::try_from_orchard(self.net, data),
             AddressKind::Unified(data) => T::try_from_unified(self.net, data),
             AddressKind::P2pkh(data) => T::try_from_transparent_p2pkh(self.net, data),
             AddressKind::P2sh(data) => T::try_from_transparent_p2sh(self.net, data),
@@ -134,6 +136,7 @@ impl ZcashAddress {
         match self.kind {
             AddressKind::Sprout(data) if regtest_exception => T::try_from_raw_sprout(data),
             AddressKind::Sapling(data) if network_matches => T::try_from_raw_sapling(data),
+            AddressKind::Orchard(data) if network_matches => T::try_from_raw_orchard(data),
             AddressKind::Unified(data) if network_matches => T::try_from_raw_unified(data),
             AddressKind::P2pkh(data) if regtest_exception => {
                 T::try_from_raw_transparent_p2pkh(data)

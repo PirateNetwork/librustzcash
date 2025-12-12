@@ -177,6 +177,7 @@ impl UnifiedAddress {
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum RecipientAddress {
     Shielded(PaymentAddress),
+    Orchard(orchard::Address),
     Transparent(TransparentAddress),
     Unified(UnifiedAddress),
 }
@@ -184,6 +185,12 @@ pub enum RecipientAddress {
 impl From<PaymentAddress> for RecipientAddress {
     fn from(addr: PaymentAddress) -> Self {
         RecipientAddress::Shielded(addr)
+    }
+}
+
+impl From<orchard::Address> for RecipientAddress {
+    fn from(addr: orchard::Address) -> Self {
+        RecipientAddress::Orchard(addr)
     }
 }
 
@@ -205,6 +212,14 @@ impl TryFromRawAddress for RecipientAddress {
     fn try_from_raw_sapling(data: [u8; 43]) -> Result<Self, ConversionError<Self::Error>> {
         let pa = PaymentAddress::from_bytes(&data).ok_or("Invalid Sapling payment address")?;
         Ok(pa.into())
+    }
+
+    fn try_from_raw_orchard(data: [u8; 43]) -> Result<Self, ConversionError<Self::Error>> {
+        let opt_addr: Option<orchard::Address> =
+            Option::from(orchard::Address::from_raw_address_bytes(&data));
+        opt_addr
+            .ok_or(ConversionError::User("Invalid Orchard payment address"))
+            .map(RecipientAddress::Orchard)
     }
 
     fn try_from_raw_unified(
@@ -238,6 +253,9 @@ impl RecipientAddress {
 
         match self {
             RecipientAddress::Shielded(pa) => ZcashAddress::from_sapling(net, pa.to_bytes()),
+            RecipientAddress::Orchard(addr) => {
+                ZcashAddress::from_orchard(net, addr.to_raw_address_bytes())
+            }
             RecipientAddress::Transparent(addr) => match addr {
                 TransparentAddress::PublicKey(data) => {
                     ZcashAddress::from_transparent_p2pkh(net, *data)

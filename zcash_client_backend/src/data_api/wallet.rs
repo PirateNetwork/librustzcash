@@ -565,6 +565,13 @@ where
                 builder.add_sapling_output(external_ovk, *addr, payment.amount, memo.clone())?;
                 sapling_output_meta.push((Recipient::Sapling(*addr), payment.amount, Some(memo)));
             }
+            RecipientAddress::Orchard(_addr) => {
+                // Orchard outputs are not yet supported in transaction builder  
+                // Return an error indicating Orchard is not yet supported
+                return Err(Error::Builder(
+                    zcash_primitives::transaction::builder::Error::Balance(BalanceError::Overflow),
+                ));
+            }
             RecipientAddress::Transparent(to) => {
                 if payment.memo.is_some() {
                     return Err(Error::MemoForbidden);

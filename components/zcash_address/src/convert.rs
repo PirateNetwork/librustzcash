@@ -117,6 +117,11 @@ pub trait TryFromRawAddress: Sized {
         Err(ConversionError::Unsupported(UnsupportedAddress("Sapling")))
     }
 
+    fn try_from_raw_orchard(data: orchard::Data) -> Result<Self, ConversionError<Self::Error>> {
+        let _ = data;
+        Err(ConversionError::Unsupported(UnsupportedAddress("Orchard")))
+    }
+
     fn try_from_raw_unified(data: unified::Address) -> Result<Self, ConversionError<Self::Error>> {
         let _ = data;
         Err(ConversionError::Unsupported(UnsupportedAddress("Unified")))
@@ -203,6 +208,14 @@ pub trait TryFromAddress: Sized {
         Err(ConversionError::Unsupported(UnsupportedAddress("Sapling")))
     }
 
+    fn try_from_orchard(
+        net: Network,
+        data: orchard::Data,
+    ) -> Result<Self, ConversionError<Self::Error>> {
+        let _ = (net, data);
+        Err(ConversionError::Unsupported(UnsupportedAddress("Orchard")))
+    }
+
     fn try_from_unified(
         net: Network,
         data: unified::Address,
@@ -247,6 +260,13 @@ impl<T: TryFromRawAddress> TryFromAddress for (Network, T) {
         data: sapling::Data,
     ) -> Result<Self, ConversionError<Self::Error>> {
         T::try_from_raw_sapling(data).map(|addr| (net, addr))
+    }
+
+    fn try_from_orchard(
+        net: Network,
+        data: orchard::Data,
+    ) -> Result<Self, ConversionError<Self::Error>> {
+        T::try_from_raw_orchard(data).map(|addr| (net, addr))
     }
 
     fn try_from_unified(
@@ -307,6 +327,8 @@ pub trait ToAddress: private::Sealed {
 
     fn from_sapling(net: Network, data: sapling::Data) -> Self;
 
+    fn from_orchard(net: Network, data: orchard::Data) -> Self;
+
     fn from_unified(net: Network, data: unified::Address) -> Self;
 
     fn from_transparent_p2pkh(net: Network, data: p2pkh::Data) -> Self;
@@ -330,6 +352,13 @@ impl ToAddress for ZcashAddress {
         ZcashAddress {
             net,
             kind: AddressKind::Sapling(data),
+        }
+    }
+
+    fn from_orchard(net: Network, data: orchard::Data) -> Self {
+        ZcashAddress {
+            net,
+            kind: AddressKind::Orchard(data),
         }
     }
 

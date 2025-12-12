@@ -473,9 +473,9 @@ mod parse {
             match v {
                 Param::Amount(a) => payment.amount = a,
                 Param::Memo(m) => match payment.recipient_address {
-                    RecipientAddress::Shielded(_) | RecipientAddress::Unified(_) => {
-                        payment.memo = Some(m)
-                    }
+                    RecipientAddress::Shielded(_)
+                    | RecipientAddress::Orchard(_)
+                    | RecipientAddress::Unified(_) => payment.memo = Some(m),
                     RecipientAddress::Transparent(_) => {
                         return Err(Zip321Error::TransparentMemo(i))
                     }

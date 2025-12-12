@@ -359,6 +359,13 @@ where
                 RecipientAddress::Shielded(_) => {
                     push_sapling();
                 }
+                RecipientAddress::Orchard(_) => {
+                    // Orchard outputs are not yet supported in input selection
+                    // Using Balance error as a placeholder since there's no better error variant
+                    return Err(InputSelectorError::Selection(
+                        GreedyInputSelectorError::Balance(BalanceError::Overflow),
+                    ));
+                }
                 RecipientAddress::Unified(addr) => {
                     if addr.sapling().is_some() {
                         push_sapling();
