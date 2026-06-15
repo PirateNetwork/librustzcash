@@ -9,7 +9,7 @@ use nonempty::NonEmpty;
 
 use orchard::{
     Action, Anchor,
-    bundle::{Authorization, Authorized, Flags},
+    bundle::{Authorization, Authorized, Flags, ProofSizeEnforcement},
     note::{ExtractedNoteCommitment, Nullifier, TransmittedNoteCiphertext},
     primitives::redpallas::{self, SigType, Signature, SpendAuth, VerificationKey},
     value::ValueCommitment,
@@ -74,13 +74,17 @@ pub fn read_v5_bundle<R: Read>(
             binding_signature,
         );
 
-        Ok(Some(orchard::Bundle::from_parts(
+        Ok(Some(orchard::Bundle::try_from_parts(
             actions,
             flags,
             value_balance,
             anchor,
             authorization,
-        )))
+            ProofSizeEnforcement::Strict,
+        ).map_err(|e| io::Error::new(
+            io::ErrorKind::InvalidData,
+            format!("invalid Orchard bundle: {:?}", e),
+        ))?))
     }
 }
 
@@ -160,9 +164,9 @@ pub fn read_action_without_auth<R: Read>(mut reader: R) -> io::Result<Action<()>
     let cmx = read_cmx(&mut reader)?;
     let encrypted_note = read_note_ciphertext(&mut reader)?;
 
-    Action::from_parts(nf_old, rk, cmx, encrypted_note, cv_net, ()).ok_or(io::Error::new(
+    Action::from_parts(nf_old, rk, cmx, encrypted_note, cv_net, ()).map_err(|e| io::Error::new(
         io::ErrorKind::InvalidData,
-        "One or more of the inputs to Orchard action creation were consensus-invalid.",
+        format!("One or more of the inputs to Orchard action creation were consensus-invalid: {}", e),
     ))
 }
 
