@@ -12,7 +12,7 @@ use zcash_encoding::{CompactSize, MAX_COMPACT_SIZE};
 use zcash_note_encryption::{ENC_CIPHERTEXT_SIZE, OUT_CIPHERTEXT_SIZE};
 use zcash_protocol::{
     consensus::BranchId,
-    value::{MAX_MONEY, ZatBalance, Zatoshis},
+    value::{MAX_BALANCE, MAX_MONEY, ZatBalance, Zatoshis},
 };
 
 use crate::transaction::{
@@ -358,5 +358,138 @@ fn joinsplit_fields_keep_the_original_reader_and_amount_bounds() {
         invalid[joinsplit_start + offset..joinsplit_start + offset + AMOUNT_SIZE].fill(0xff);
         assert!(Transaction::read(&invalid[..], BranchId::Canopy).is_err());
         assert!(reused(&invalid, &bundle).is_err());
+    }
+}
+
+fn assert_equivalent_transactions(reference: &Transaction, actual: &Transaction) {
+    assert_eq!(reference.txid(), actual.txid());
+    assert_eq!(reference.auth_commitment(), actual.auth_commitment());
+    let mut expected = Vec::new();
+    let mut rewritten = Vec::new();
+    reference.write(&mut expected).unwrap();
+    actual.write(&mut rewritten).unwrap();
+    assert_eq!(expected, rewritten);
+}
+
+#[test]
+fn generated_transactions_and_extreme_balances_match_the_ordinary_reader() {
+    // Bound the deterministic corpus while varying every transaction component
+    // supported by the existing Canopy transaction strategy.
+    const GENERATED_TRANSACTIONS: usize = 32;
+    let mut runner = TestRunner::deterministic();
+    let strategy = crate::transaction::testing::arb_tx(BranchId::Canopy)
+        .prop_filter("a reusable Sapling bundle", |tx| {
+            tx.sapling_bundle().is_some()
+        });
+    for _ in 0..GENERATED_TRANSACTIONS {
+        let tx = strategy.new_tree(&mut runner).unwrap().current();
+        let mut bytes = Vec::new();
+        tx.write(&mut bytes).unwrap();
+        let reference = Transaction::read(&bytes[..], BranchId::Canopy).unwrap();
+        let actual = reused(&bytes, tx.sapling_bundle().unwrap()).unwrap();
+        assert_equivalent_transactions(&reference, &actual);
+    }
+
+    let seed = bundle(1, 1);
+    for balance in [-MAX_BALANCE, -1, 1, MAX_BALANCE] {
+        let bundle = Bundle::from_parts(
+            seed.shielded_spends().to_vec(),
+            seed.shielded_outputs().to_vec(),
+            ZatBalance::from_i64(balance).unwrap(),
+            *seed.authorization(),
+        )
+        .unwrap();
+        let bytes = encoded(&bundle);
+        let reference = Transaction::read(&bytes[..], BranchId::Canopy).unwrap();
+        let actual = reused(&bytes, &bundle).unwrap();
+        assert_equivalent_transactions(&reference, &actual);
+        assert_eq!(
+            *actual.sapling_bundle().unwrap().value_balance(),
+            *bundle.value_balance()
+        );
+    }
+}
+
+#[test]
+fn accepting_a_mutated_transaction_requires_ordinary_reader_equivalence() {
+    let bundle = bundle(2, 2);
+    let bytes = encoded(&bundle);
+    let mut accepted = 0;
+    let mut rejected = 0;
+    // Change every byte in turn, including fields outside the reused bundle.
+    // Those fields may change legitimately; successful reads must still agree.
+    for offset in 0..bytes.len() {
+        let mut changed = bytes.clone();
+        changed[offset] ^= 1;
+        match reused(&changed, &bundle) {
+            Ok(actual) => {
+                let reference = Transaction::read(&changed[..], BranchId::Canopy)
+                    .unwrap_or_else(|_| panic!("only reuse accepted mutation at {offset}"));
+                assert_equivalent_transactions(&reference, &actual);
+                accepted += 1;
+            }
+            Err(_) => rejected += 1,
+        }
+    }
+    assert!(accepted > 0, "exercise fields outside the reused bundle");
+    assert!(rejected > 0, "exercise mismatches within the reused bundle");
+}
+
+struct FragmentedReader<'a> {
+    remaining: &'a [u8],
+    fragment_size: usize,
+    interrupt_next: bool,
+}
+
+impl io::Read for FragmentedReader<'_> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        if buf.is_empty() {
+            return Ok(0);
+        }
+        if self.interrupt_next {
+            self.interrupt_next = false;
+            return Err(io::Error::new(
+                io::ErrorKind::Interrupted,
+                "retry this read",
+            ));
+        }
+        self.interrupt_next = true;
+        let count = buf.len().min(self.fragment_size).min(self.remaining.len());
+        buf[..count].copy_from_slice(&self.remaining[..count]);
+        self.remaining = &self.remaining[count..];
+        Ok(count)
+    }
+}
+
+#[test]
+fn fragmented_interrupted_reads_preserve_hashes_and_trailing_bytes() {
+    // Odd fragment sizes deliberately split field encodings at different offsets.
+    const FRAGMENT_SIZES: [usize; 3] = [1, 7, 31];
+    // Bytes belonging to the next message must remain unread after a transaction.
+    const TRAILING_SENTINEL: [u8; 4] = [0xde, 0xad, 0xbe, 0xef];
+    let bundle = bundle(1, 1);
+    let mut bytes = encoded(&bundle);
+    bytes.extend_from_slice(&TRAILING_SENTINEL);
+    for fragment_size in FRAGMENT_SIZES {
+        let mut original_stream = FragmentedReader {
+            remaining: &bytes,
+            fragment_size,
+            interrupt_next: true,
+        };
+        let mut reused_stream = FragmentedReader {
+            remaining: &bytes,
+            fragment_size,
+            interrupt_next: true,
+        };
+        let reference = Transaction::read(&mut original_stream, BranchId::Canopy).unwrap();
+        let actual = Transaction::temporary_zcashd_read_v4_with_sapling(
+            &mut reused_stream,
+            BranchId::Canopy,
+            &bundle,
+        )
+        .unwrap();
+        assert_equivalent_transactions(&reference, &actual);
+        assert_eq!(original_stream.remaining, TRAILING_SENTINEL);
+        assert_eq!(reused_stream.remaining, TRAILING_SENTINEL);
     }
 }
