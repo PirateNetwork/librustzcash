@@ -684,6 +684,32 @@ struct V6HeaderFragment {
     zip233_amount: Zatoshis,
 }
 
+// Reuse the canonical field writer as an exact comparison against the input.
+// A fixed buffer bounds scratch space regardless of bundle or write size.
+struct MatchingReader<'a, R>(&'a mut R);
+
+impl<R: Read> Write for MatchingReader<'_, R> {
+    fn write(&mut self, expected: &[u8]) -> io::Result<usize> {
+        // Compare in fixed-size chunks without allocating for an entire field.
+        const COMPARISON_BUFFER_SIZE: usize = 1024;
+        let mut actual = [0; COMPARISON_BUFFER_SIZE];
+        for chunk in expected.chunks(actual.len()) {
+            self.0.read_exact(&mut actual[..chunk.len()])?;
+            if actual[..chunk.len()] != *chunk {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "Sapling component mismatch",
+                ));
+            }
+        }
+        Ok(expected.len())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+
 impl Transaction {
     fn from_data(data: TransactionData<Authorized>) -> io::Result<Self> {
         match data.version {
@@ -745,11 +771,73 @@ impl Transaction {
         }
     }
 
+    /// Reads a v4 transaction while reusing an already decoded Sapling bundle.
+    /// Every serialized Sapling field must exactly match the supplied bundle.
+    /// Other transaction fields use the ordinary reader and all bytes still
+    /// pass through its transaction-ID hash reader.
+    ///
+    /// Returns an error for non-v4 transactions, malformed transaction fields,
+    /// a bundle that violates the ordinary reader's decoding constraints, or
+    /// any mismatch between the serialized fields and the supplied bundle.
+    #[cfg(feature = "temporary-zcashd")]
+    pub fn temporary_zcashd_read_v4_with_sapling<R: Read>(
+        reader: R,
+        consensus_branch_id: BranchId,
+        bundle: &sapling::Bundle<sapling::bundle::Authorized, ZatBalance>,
+    ) -> io::Result<Self> {
+        let mut reader = HashReader::new(reader);
+        let version = TxVersion::read(&mut reader)?;
+        if version != TxVersion::V4 {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "expected v4 transaction",
+            ));
+        }
+        // Typed vectors can be constructed without the wire reader's count
+        // bound. Apply the same CompactSize decoder to their canonical counts
+        // before replacing Vector::read with a byte comparison.
+        for count in [
+            bundle.shielded_spends().len(),
+            bundle.shielded_outputs().len(),
+        ] {
+            // CompactSize uses at most one tag byte followed by a u64.
+            const MAX_COMPACT_SIZE_ENCODING_SIZE: usize = 1 + core::mem::size_of::<u64>();
+            let mut encoded = [0; MAX_COMPACT_SIZE_ENCODING_SIZE];
+            CompactSize::write(&mut encoded[..], count)?;
+            CompactSize::read(&encoded[..])?;
+        }
+        // ValueCommitment::derive can construct a small-order point even
+        // though parsing a commitment would reject it. Recheck this invariant
+        // on the typed value before replacing the ordinary point decoder.
+        if bundle
+            .shielded_spends()
+            .iter()
+            .any(|s| bool::from(s.cv().as_inner().is_small_order()))
+            || bundle
+                .shielded_outputs()
+                .iter()
+                .any(|o| bool::from(o.cv().as_inner().is_small_order()))
+        {
+            return Err(io::Error::new(io::ErrorKind::InvalidInput, "invalid cv"));
+        }
+        Self::read_v4_with_sapling(reader, version, consensus_branch_id, Some(bundle))
+    }
+
     #[allow(clippy::redundant_closure)]
     fn read_v4<R: Read>(
+        reader: HashReader<R>,
+        version: TxVersion,
+        consensus_branch_id: BranchId,
+    ) -> io::Result<Self> {
+        Self::read_v4_with_sapling(reader, version, consensus_branch_id, None)
+    }
+
+    #[allow(clippy::redundant_closure)]
+    fn read_v4_with_sapling<R: Read>(
         mut reader: HashReader<R>,
         version: TxVersion,
         consensus_branch_id: BranchId,
+        decoded_sapling: Option<&sapling::Bundle<sapling::bundle::Authorized, ZatBalance>>,
     ) -> io::Result<Self> {
         let transparent_bundle = Self::read_transparent(&mut reader)?;
 
@@ -761,7 +849,20 @@ impl Transaction {
         };
 
         let (value_balance, shielded_spends, shielded_outputs) =
-            sapling_serialization::read_v4_components(&mut reader, version.has_sapling())?;
+            if let Some(bundle) = decoded_sapling {
+                sapling_serialization::write_v4_components(
+                    MatchingReader(&mut reader),
+                    Some(bundle),
+                    version.has_sapling(),
+                )?;
+                (
+                    *bundle.value_balance(),
+                    bundle.shielded_spends().to_vec(),
+                    bundle.shielded_outputs().to_vec(),
+                )
+            } else {
+                sapling_serialization::read_v4_components(&mut reader, version.has_sapling())?
+            };
 
         let sprout_bundle = if version.has_sprout() {
             let joinsplits = Vector::read(&mut reader, |r| {
@@ -793,6 +894,16 @@ impl Transaction {
         } else {
             None
         };
+
+        if let Some(bundle) = decoded_sapling {
+            let expected: [u8; 64] = bundle.authorization().binding_sig.into();
+            if binding_sig.map(<[u8; 64]>::from) != Some(expected) {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "Sapling binding signature mismatch",
+                ));
+            }
+        }
 
         let mut txid = [0; 32];
         let hash_bytes = reader.into_hash();

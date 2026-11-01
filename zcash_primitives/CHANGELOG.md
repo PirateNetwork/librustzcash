@@ -11,6 +11,9 @@ workspace.
 ## [Unreleased]
 
 ### Added
+- `zcash_primitives::transaction::Transaction::temporary_zcashd_read_v4_with_sapling`
+  (behind `temporary-zcashd`) reads a v4 transaction using an already decoded
+  Sapling bundle, requiring its serialized fields to match the input exactly.
 - `zcash_primitives::transaction::components::orchard::ACTION_SIZE`, the size in
   bytes of an Orchard action description as encoded in a transaction. It excludes
   the action's spend authorization signature and its share of the bundle's proof,

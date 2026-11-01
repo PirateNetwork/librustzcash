@@ -40,6 +40,9 @@ use zcash_protocol::value::ZatBalance;
 #[cfg(any(test, feature = "test-dependencies"))]
 pub mod data;
 
+#[cfg(all(test, feature = "temporary-zcashd"))]
+mod reused_sapling;
+
 #[test]
 fn tx_read_write() {
     let data = &self::data::tx_read_write::TX_READ_WRITE;
