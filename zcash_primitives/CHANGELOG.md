@@ -35,6 +35,8 @@ workspace.
   share it instead of rebuilding the expensive proving key.
 
 ### Changed
+- Transparent builder APIs now use `secp256k1 0.33` key types and
+  `zcash_script 0.6` script types.
 - `zcash_primitives::transaction::builder::BuildConfig::Standard` now carries
   separate `orchard_bundle_type` and `ironwood_bundle_type` fields in place of
   `orchard_pool_bundle_type`, selecting the transactional bundle type

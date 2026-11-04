@@ -1364,12 +1364,11 @@ where
 /// Builds a test 1-of-1 multisig redeem script from a single keypair.
 #[cfg(feature = "transparent-key-import")]
 fn build_test_redeem_script() -> (script::Redeem, secp256k1::SecretKey) {
-    use secp256k1::{Secp256k1, SecretKey};
+    use secp256k1::SecretKey;
     use zcash_script::pattern::check_multisig;
 
-    let secp = Secp256k1::new();
-    let secret_key = SecretKey::from_slice(&[1u8; 32]).expect("valid secret key");
-    let pubkey = secret_key.public_key(&secp);
+    let secret_key = SecretKey::from_secret_bytes([1u8; 32]).expect("valid secret key");
+    let pubkey = secret_key.public_key();
     let redeem_script = script::Component(
         check_multisig(1, &[&pubkey.serialize()], false)
             .unwrap()
@@ -1385,7 +1384,7 @@ pub fn import_standalone_transparent_pubkey<DSF>(dsf: DSF)
 where
     DSF: DataStoreFactory,
 {
-    use secp256k1::{Secp256k1, SecretKey};
+    use secp256k1::SecretKey;
 
     let mut st = TestBuilder::new()
         .with_data_store_factory(dsf)
@@ -1394,9 +1393,8 @@ where
 
     let account_id = st.test_account().unwrap().id();
 
-    let secp = Secp256k1::new();
-    let secret_key = SecretKey::from_slice(&[1u8; 32]).expect("valid secret key");
-    let pubkey = secret_key.public_key(&secp);
+    let secret_key = SecretKey::from_secret_bytes([1u8; 32]).expect("valid secret key");
+    let pubkey = secret_key.public_key();
     assert_matches!(
         st.wallet_mut()
             .import_standalone_transparent_pubkey(account_id, pubkey),
@@ -1410,7 +1408,7 @@ pub fn import_standalone_transparent_pubkey_idempotent<DSF>(dsf: DSF)
 where
     DSF: DataStoreFactory,
 {
-    use secp256k1::{Secp256k1, SecretKey};
+    use secp256k1::SecretKey;
 
     let mut st = TestBuilder::new()
         .with_data_store_factory(dsf)
@@ -1419,9 +1417,8 @@ where
 
     let account_id = st.test_account().unwrap().id();
 
-    let secp = Secp256k1::new();
-    let secret_key = SecretKey::from_slice(&[1u8; 32]).expect("valid secret key");
-    let pubkey = secret_key.public_key(&secp);
+    let secret_key = SecretKey::from_secret_bytes([1u8; 32]).expect("valid secret key");
+    let pubkey = secret_key.public_key();
 
     // First import
     assert_matches!(
@@ -1467,7 +1464,7 @@ pub fn import_standalone_transparent_pubkey_conflict<DSF>(dsf: DSF)
 where
     DSF: DataStoreFactory,
 {
-    use secp256k1::{Secp256k1, SecretKey};
+    use secp256k1::SecretKey;
     use secrecy::Secret;
 
     use crate::data_api::{AccountBirthday, chain::ChainState};
@@ -1480,9 +1477,8 @@ where
 
     let account1_id = st.test_account().unwrap().id();
 
-    let secp = Secp256k1::new();
-    let secret_key = SecretKey::from_slice(&[1u8; 32]).expect("valid secret key");
-    let pubkey = secret_key.public_key(&secp);
+    let secret_key = SecretKey::from_secret_bytes([1u8; 32]).expect("valid secret key");
+    let pubkey = secret_key.public_key();
 
     // Import to first account
     assert_matches!(
@@ -1524,7 +1520,7 @@ where
     <<DSF as DataStoreFactory>::DataStore as WalletWrite>::UtxoRef: std::fmt::Debug,
 {
     use crate::data_api::wallet::ConfirmationsPolicy;
-    use secp256k1::{Secp256k1, SecretKey};
+    use secp256k1::SecretKey;
 
     let mut st = TestBuilder::new()
         .with_data_store_factory(dsf)
@@ -1534,9 +1530,8 @@ where
     let account_id = st.test_account().unwrap().id();
     let birthday = st.test_account().unwrap().birthday().height();
 
-    let secp = Secp256k1::new();
-    let secret_key = SecretKey::from_slice(&[1u8; 32]).expect("valid secret key");
-    let pubkey = secret_key.public_key(&secp);
+    let secret_key = SecretKey::from_secret_bytes([1u8; 32]).expect("valid secret key");
+    let pubkey = secret_key.public_key();
 
     // Import the public key.
     st.wallet_mut()
@@ -1599,7 +1594,7 @@ where
     DSF: DataStoreFactory,
 {
     use crate::data_api::wallet::{self, SpendingKeys};
-    use secp256k1::{Secp256k1, SecretKey};
+    use secp256k1::SecretKey;
     use std::collections::HashMap;
 
     let mut st = TestBuilder::new()
@@ -1612,9 +1607,8 @@ where
     let account_id = account.id();
 
     // Create a keypair and derive the P2PKH address.
-    let secp = Secp256k1::new();
-    let secret_key = SecretKey::from_slice(&[1u8; 32]).expect("valid secret key");
-    let pubkey = secret_key.public_key(&secp);
+    let secret_key = SecretKey::from_secret_bytes([1u8; 32]).expect("valid secret key");
+    let pubkey = secret_key.public_key();
 
     // Import the public key.
     st.wallet_mut()

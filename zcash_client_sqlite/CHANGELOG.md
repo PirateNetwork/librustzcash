@@ -86,6 +86,8 @@ workspace.
   without one at it is still reported as corruption.
 
 ### Changed
+- Transparent key import and wallet APIs now use `bip32 0.6`,
+  `secp256k1 0.33`, and `zcash_script 0.6` types.
 - The `zip-233` feature flag now also enables `zcash_client_backend/zip-233`,
   keeping the two crates' feature-gated `zcash_primitives` call signatures in
   agreement when this crate is built with ZIP 233 support.

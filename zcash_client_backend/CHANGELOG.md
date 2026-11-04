@@ -68,6 +68,8 @@ workspace.
   this is set once on the selector instance rather than passed to each call.
 
 ### Changed
+- Transparent wallet APIs now use `bip32 0.6`, `secp256k1 0.33`, and
+  `zcash_script 0.6` types.
 - `zcash_client_backend::data_api::wallet::create_proposed_transactions` now
   takes an `expiry_height: Option<BlockHeight>` parameter, mirroring the
   one already accepted by `create_pczt_from_proposal`. This lets callers

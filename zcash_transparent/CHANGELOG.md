@@ -11,6 +11,10 @@ workspace.
 ## [Unreleased]
 
 ### Changed
+- Migrated public key-derivation types to `bip32 0.6` and transparent key and
+  signature types to `secp256k1 0.33`. Applications using those types directly
+  must update their dependencies to the matching versions.
+- Migrated script types to `zcash_script 0.6`.
 - `zcash_transparent::pczt::ParseError` has a new `InvalidPartialSignature`
   variant. The `ParseError` enum is now marked `#[non_exhaustive]`.
 

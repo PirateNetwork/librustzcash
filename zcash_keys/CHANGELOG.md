@@ -9,6 +9,11 @@ workspace.
 
 ## [Unreleased]
 
+### Changed
+- Transparent key APIs now use `bip32 0.6` and `secp256k1 0.33` types.
+  Applications using those types directly must update their dependencies to the
+  matching versions. Seed inputs and encoded keys remain unchanged.
+
 ## [0.15.0] - 2026-07-09
 
 ### Changed
